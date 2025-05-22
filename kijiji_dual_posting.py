@@ -1,26 +1,73 @@
 """
 Kijiji Dual Room Rental Automation Script
-Posts 2 unique room rental ads based on recorded workflow
+=========================================
+
+This script automates the process of posting room rental ads on Kijiji.ca
+It implements a dual-ad strategy, posting 2 unique ads targeting different audiences:
+- Ad 1: Targets working professionals ($500/month)
+- Ad 2: Targets students ($450/month)
+
+Features:
+- Automatic login to Kijiji
+- Deletion of existing ads to avoid duplicates
+- Posting of 2 optimized ads with unique content
+- Silent image upload (no visual file picker)
+- Screenshot logging for debugging
+- Ready for daily automation via cron/scheduler
+
+Author: Built with ❤️ using Playwright and Python
+Repository: https://github.com/BlockchainHB/KijijiBot
 """
 
-import asyncio
-import json
-import os
-from datetime import datetime
-from playwright.async_api import async_playwright
+# Import required libraries
+import asyncio          # For asynchronous operations (waiting, delays)
+import json            # For reading configuration files
+import os              # For file system operations (creating directories)
+from datetime import datetime    # For timestamps in screenshots and logs
+from playwright.async_api import async_playwright  # Web automation library
 
 class KijijiDualPosting:
+    """
+    Main automation class for Kijiji dual room rental posting.
+    
+    This class handles:
+    1. Configuration loading from JSON file
+    2. Browser automation using Playwright
+    3. Kijiji login and navigation
+    4. Ad deletion and posting workflow
+    5. Image upload management
+    6. Error handling and screenshot logging
+    """
+    
     def __init__(self, config_file='test_input.json'):
+        """
+        Initialize the automation with configuration settings.
+        
+        Args:
+            config_file (str): Path to JSON config file containing login credentials
+        
+        The config file should contain:
+        - username: Kijiji email address
+        - password: Kijiji password  
+        - headless: Boolean (True for background mode, False to see browser)
+        """
+        # Load configuration from JSON file
         with open(config_file, 'r') as f:
             self.config = json.load(f)
         
+        # Extract login credentials from config
         self.username = self.config.get('username')
         self.password = self.config.get('password')
-        self.headless = self.config.get('headless', False)
+        self.headless = self.config.get('headless', False)  # Default to visible browser
         
-        # Two optimized room ads - Kijiji character limits & search optimization
+        # =================================================================
+        # AD CONFIGURATION - CUSTOMIZE THESE FOR YOUR ROOM
+        # =================================================================
+        
+        # Ad 1: Professional-focused listing targeting working professionals
+        # This ad uses higher price point and professional language
         self.ad1 = {
-            'title': 'Furnished Basement Room Scarborough',  # 54 chars
+            'title': 'Furnished Basement Room Scarborough',  # 54 chars (under 100 limit)
             'description': '''FURNISHED BASEMENT ROOM - SCARBOROUGH
 
 WHAT'S INCLUDED:
@@ -51,14 +98,16 @@ Non-smoking home
 
 Contact: 647-607-4050
 Call or text anytime''',
-            'price': '500',
-            'tags': ['furnished', 'basement', 'scarborough', 'inclusive', 'utilities'],
+            'price': '500',  # Higher price for professional market
+            'tags': ['furnished', 'basement', 'scarborough', 'inclusive', 'utilities'],  # SEO keywords
             'location': '138 Chillery Avenue',
             'phone': '647-607-4050'
         }
         
+        # Ad 2: Student-focused listing targeting college/university students  
+        # This ad uses lower price point and student-friendly language
         self.ad2 = {
-            'title': 'Shared Student Room Rental Near TTC',  # 55 chars
+            'title': 'Shared Student Room Rental Near TTC',  # 55 chars (under 100 limit)
             'description': '''STUDENT-FRIENDLY ROOM RENTAL - SCARBOROUGH
 
 PERFECT FOR STUDENTS:
@@ -90,81 +139,146 @@ References and student ID required
 Non-smoking environment
 
 Text/Call: 647-607-4050''',
-            'price': '450', 
-            'tags': ['student', 'furnished', 'ttc', 'scarborough', 'college'],
+            'price': '450',  # Lower price for student market
+            'tags': ['student', 'furnished', 'ttc', 'scarborough', 'college'],  # Student-focused keywords
             'location': '138 Chillery Avenue',
             'phone': '647-607-4050'
         }
         
-        # Separate image sets for each ad to avoid duplicate content
-        # Each ad gets its own photos for uniqueness
+        # =================================================================
+        # IMAGE CONFIGURATION - SEPARATE PHOTOS FOR EACH AD
+        # =================================================================
+        
+        # IMPORTANT: Each ad uses different photos to avoid Kijiji's duplicate content detection
+        # Take the same room from different angles or with different staging for each ad
+        
+        # Images for Ad 1 (Professional focus) - stored in images/ad1/ folder
         self.ad1_images = [
-            "images/ad1/room_main.png",      # Professional-focused staging
-            "images/ad1/bed_area.png",       # Clean, professional setup
-            "images/ad1/workspace.png",      # Work-from-home setup
-            "images/ad1/kitchen.png",        # Kitchen angle 1
-            "images/ad1/bathroom.png",       # Bathroom angle 1
-            "images/ad1/exterior.png"        # House exterior angle 1
+            "images/ad1/room_main.png",      # Main room view - professional staging
+            "images/ad1/bed_area.png",       # Bed area - clean, professional setup  
+            "images/ad1/workspace.png",      # Desk/work area - work-from-home focused
+            "images/ad1/kitchen.png",        # Kitchen access - angle 1
+            "images/ad1/bathroom.png",       # Bathroom - angle 1, clean/modern
+            "images/ad1/exterior.png"        # House/building exterior - angle 1
         ]
         
+        # Images for Ad 2 (Student focus) - stored in images/ad2/ folder
         self.ad2_images = [
-            "images/ad2/room_study.png",     # Student-focused staging
-            "images/ad2/bed_desk.png",       # Study area emphasized
-            "images/ad2/living_space.png",   # Student-friendly common area
-            "images/ad2/kitchen_shared.png", # Kitchen angle 2
-            "images/ad2/bathroom_clean.png", # Bathroom angle 2
-            "images/ad2/building.png"        # Building exterior angle 2
+            "images/ad2/room_study.png",     # Same room - student/study staging
+            "images/ad2/bed_desk.png",       # Bed + desk combo view for students
+            "images/ad2/living_space.png",   # Common area - casual, student-friendly
+            "images/ad2/kitchen_shared.png", # Kitchen access - angle 2, shared focus
+            "images/ad2/bathroom_clean.png", # Bathroom - angle 2, student-appropriate
+            "images/ad2/building.png"        # Building exterior - angle 2
         ]
         
-        # Create directories
-        os.makedirs('screenshots', exist_ok=True)
-        os.makedirs('images/ad1', exist_ok=True)
-        os.makedirs('images/ad2', exist_ok=True)
+        # =================================================================
+        # DIRECTORY SETUP - CREATE REQUIRED FOLDERS
+        # =================================================================
+        
+        # Create necessary directories if they don't exist
+        # exist_ok=True prevents errors if directories already exist
+        os.makedirs('screenshots', exist_ok=True)    # For automation progress screenshots
+        os.makedirs('images/ad1', exist_ok=True)     # For professional ad photos  
+        os.makedirs('images/ad2', exist_ok=True)     # For student ad photos
         
     async def login(self, page):
-        """Login to Kijiji - based on recording"""
+        """
+        Handle Kijiji login process.
+        
+        This method:
+        1. Navigates to Kijiji login page
+        2. Fills in username and password from config
+        3. Submits login form
+        4. Waits for successful redirect
+        5. Takes screenshot for verification
+        
+        Args:
+            page: Playwright page object for browser interaction
+            
+        Raises:
+            Exception: If login fails or times out
+        """
         print("🔐 Logging in to Kijiji...")
         
+        # Kijiji's OAuth login URL - this ensures we get redirected to main site after login
         login_url = "https://id.kijiji.ca/login?service=https%3A%2F%2Fid.kijiji.ca%2Foauth2.0%2FcallbackAuthorize%3Fclient_id%3Dkijiji_horizontal_web_gpmPihV3%26redirect_uri%3Dhttps%253A%252F%252Fwww.kijiji.ca%252Fapi%252Fauth%252Fcallback%252Fcis%26response_type%3Dcode%26client_name%3DCasOAuthClient&locale=en&scope=openid+email+profile"
         
+        # Navigate to login page and wait for network to be idle (page fully loaded)
         await page.goto(login_url, wait_until='networkidle')
-        await asyncio.sleep(2)
+        await asyncio.sleep(2)  # Additional wait for any dynamic content
         
-        # Login process from recording
+        # Step 1: Enter email address
+        # Using get_by_role for more reliable element selection than CSS selectors
         await page.get_by_role("textbox", name="Email Address").click()
         await page.get_by_role("textbox", name="Email Address").fill(self.username)
+        
+        # Step 2: Tab to password field (mimics human behavior)
         await page.get_by_role("textbox", name="Email Address").press("Tab")
         await page.get_by_role("link", name="Forgot Password?").press("Tab")
+        
+        # Step 3: Enter password and submit
         await page.get_by_role("textbox", name="Password").fill(self.password)
         await page.get_by_role("button", name="Sign in").click()
         
-        # Wait for redirect
+        # Step 4: Wait for successful login redirect to main Kijiji site
+        # The ** pattern matches any path under kijiji.ca
         await page.wait_for_url('https://www.kijiji.ca/**', timeout=30000)
-        await asyncio.sleep(3)
+        await asyncio.sleep(3)  # Allow page to fully load after redirect
         
         print("   ✅ Login successful!")
+        # Take screenshot for verification/debugging - timestamp prevents filename conflicts
         await page.screenshot(path=f'screenshots/01-login-{datetime.now().strftime("%H%M%S")}.png')
         
     async def delete_existing_ads(self, page):
-        """Delete all existing ads - based on recording"""
+        """
+        Delete all existing ads from the user's account.
+        
+        This is crucial to avoid duplicate content issues on Kijiji.
+        The method:
+        1. Navigates to "My Ads" section
+        2. Scans for all existing listings
+        3. Deletes each ad individually
+        4. Confirms deletion and closes modals
+        
+        Args:
+            page: Playwright page object for browser interaction
+            
+        Note: 
+            - Prevents infinite loops by collecting all IDs first, then deleting
+            - Uses try/catch for each deletion to continue if one fails
+            - Takes screenshot for debugging
+        """
         print("🗑️  Deleting existing ads...")
         
-        # Navigate to My Ads
-        await page.get_by_role("button", name="My Account").click()
-        await asyncio.sleep(1)
-        await page.get_by_role("link", name="My Ads").click()
-        await asyncio.sleep(3)
+        # =================================================================
+        # STEP 1: NAVIGATE TO "MY ADS" SECTION
+        # =================================================================
         
+        # Click "My Account" dropdown in header
+        await page.get_by_role("button", name="My Account").click()
+        await asyncio.sleep(1)  # Wait for dropdown to appear
+        
+        # Click "My Ads" link in dropdown menu
+        await page.get_by_role("link", name="My Ads").click()
+        await asyncio.sleep(3)  # Wait for ads page to load completely
+        
+        # Take screenshot of current ads before deletion
         await page.screenshot(path=f'screenshots/02-my-ads-{datetime.now().strftime("%H%M%S")}.png')
         
-        # First, collect all unique listing IDs
+        # =================================================================
+        # STEP 2: SCAN FOR EXISTING ADS
+        # =================================================================
+        
         print("   Scanning for existing ads...")
         
         try:
-            # Find all elements with test-id that starts with "listing-id-"
+            # Find all ad elements using data-testid attribute
+            # Kijiji uses test IDs like "listing-id-1234567890" for each ad
             listing_elements = await page.query_selector_all('[data-testid^="listing-id-"]')
             listing_ids = []
             
+            # Extract the actual test-id values from each element
             for element in listing_elements:
                 test_id = await element.get_attribute('data-testid')
                 if test_id and test_id.startswith('listing-id-'):
@@ -172,37 +286,49 @@ Text/Call: 647-607-4050''',
             
             print(f"   Found {len(listing_ids)} ads to delete: {listing_ids}")
             
-            # Now delete each specific listing ID
+            # =================================================================
+            # STEP 3: DELETE EACH AD INDIVIDUALLY  
+            # =================================================================
+            
+            # IMPORTANT: We collect all IDs first, then delete each one
+            # This prevents infinite loops that could occur if we tried to
+            # find and delete ads in the same loop (DOM changes during deletion)
+            
             deleted_count = 0
             for listing_id in listing_ids:
                 try:
                     print(f"   Deleting ad: {listing_id}")
                     
-                    # Click the specific delete button for this listing
+                    # Find and click the delete button for this specific listing
+                    # Each ad has its own delete button with adDeleteButton test-id
                     delete_button = page.get_by_test_id(listing_id).get_by_test_id("adDeleteButton")
                     await delete_button.click()
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(1)  # Wait for delete confirmation modal
                     
-                    # Select reason and confirm (from recording)
+                    # Kijiji requires a reason for deletion - we select "Prefer not to say"
                     await page.get_by_role("button", name="Prefer not to say").click()
                     await asyncio.sleep(1)
-                    await page.get_by_role("button", name="Delete My Ad").click()
-                    await asyncio.sleep(2)
                     
-                    # Close modal (from recording)
+                    # Confirm the deletion
+                    await page.get_by_role("button", name="Delete My Ad").click()
+                    await asyncio.sleep(2)  # Wait for deletion to process
+                    
+                    # Close the confirmation modal that appears after deletion
                     await page.get_by_test_id("ModalCloseButton").click()
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(2)  # Wait for modal to close and page to update
                     
                     deleted_count += 1
                     print(f"   ✅ Ad {deleted_count} deleted: {listing_id}")
                     
                 except Exception as e:
+                    # If one ad fails to delete, log the error but continue with others
                     print(f"   ⚠️ Failed to delete {listing_id}: {e}")
                     continue
                     
             print(f"   ✅ Total ads deleted: {deleted_count}")
             
         except Exception as e:
+            # Handle case where no ads exist or scanning fails
             print(f"   ⚠️ Error scanning for ads: {e}")
             print("   No ads found or already deleted")
         
