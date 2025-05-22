@@ -1,0 +1,13 @@
+{
+    "username": "your-email@domain.com",
+    "password": "your-password-here",
+    "headless": false,
+    "location": "138 Chillery Avenue, Scarborough",
+    "phone": "647-XXX-XXXX",
+    "notes": {
+        "setup": "Copy this file to 'test_input.json' and add your real credentials",
+        "security": "Never commit test_input.json to version control",
+        "headless": "Set headless to true for background automation",
+        "images": "Add your photos to images/ad1/ and images/ad2/ folders"
+    }
+} 

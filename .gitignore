@@ -1,0 +1,85 @@
+# Kijiji Automation - Sensitive & Temporary Files
+
+# Credentials & Configuration
+test_input.json
+config.json
+credentials.json
+
+# Screenshots & Logs
+screenshots/
+logs/
+*.log
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Local test files
+local_test_*
+temp_*
+debug_*
+
+# HTML dumps
+html_dumps/
+
+# Temporary images during testing
+images/temp/
+images/test/
