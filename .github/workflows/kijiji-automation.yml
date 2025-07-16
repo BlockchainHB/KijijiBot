@@ -1,0 +1,54 @@
+name: Kijiji Dual Posting Automation
+
+on:
+  schedule:
+    # Run daily at 9 AM EST (2 PM UTC)
+    - cron: '0 14 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  post-ads:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Install Playwright browsers
+      run: |
+        playwright install chromium
+        
+    - name: Create config file
+      run: |
+        echo '{
+          "username": "${{ secrets.KIJIJI_USERNAME }}",
+          "password": "${{ secrets.KIJIJI_PASSWORD }}",
+          "headless": true
+        }' > test_input.json
+        
+    - name: Create image directories
+      run: |
+        mkdir -p images/ad1 images/ad2
+        
+    - name: Run Kijiji automation
+      run: python kijiji_dual_posting.py
+      env:
+        DISPLAY: :99
+        
+    - name: Upload screenshots (if any)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: screenshots-${{ github.run_number }}
+        path: screenshots/
+        retention-days: 7

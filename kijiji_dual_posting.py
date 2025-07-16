@@ -51,14 +51,21 @@ class KijijiDualPosting:
         - password: Kijiji password  
         - headless: Boolean (True for background mode, False to see browser)
         """
-        # Load configuration from JSON file
-        with open(config_file, 'r') as f:
-            self.config = json.load(f)
+        # Load configuration from JSON file or environment variables
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                self.config = json.load(f)
+        else:
+            # Fallback to environment variables for GitHub Actions
+            self.config = {}
         
-        # Extract login credentials from config
-        self.username = self.config.get('username')
-        self.password = self.config.get('password')
-        self.headless = self.config.get('headless', False)  # Default to visible browser
+        # Extract login credentials from config or environment
+        self.username = self.config.get('username') or os.getenv('KIJIJI_USERNAME')
+        self.password = self.config.get('password') or os.getenv('KIJIJI_PASSWORD')
+        self.headless = self.config.get('headless', True)  # Default to headless for cloud
+        
+        if not self.username or not self.password:
+            raise ValueError("Username and password must be provided via config file or environment variables")
         
         # =================================================================
         # AD CONFIGURATION - CUSTOMIZE THESE FOR YOUR ROOM
@@ -92,8 +99,7 @@ IDEAL FOR:
 RENT: $500/month ALL-INCLUSIVE
 No hidden fees or extra charges
 
-Available immediately
-References required
+Available August 1st
 Non-smoking home
 
 Contact: 647-607-4050
@@ -134,8 +140,7 @@ WHAT'S INCLUDED:
 SPECIAL STUDENT RATE: $450/month
 All utilities included - no extra costs
 
-Available now for September
-References and student ID required
+Available now for August 1st
 Non-smoking environment
 
 Text/Call: 647-607-4050''',
