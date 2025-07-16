@@ -382,13 +382,26 @@ Text/Call: 647-607-4050''',
         """Fill the ad form with details"""
         print("   📋 Filling form details...")
         
-        # Set furnished to Yes (from recording)
-        await page.get_by_role("listitem").filter(has_text="Furnished: (optional) Yes No").locator("label").nth(2).click()
-        await asyncio.sleep(1)
+        # Set furnished to Yes (with better error handling)
+        try:
+            await page.get_by_role("listitem").filter(has_text="Furnished: (optional) Yes No").locator("label").nth(2).click(timeout=10000)
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"   ⚠️ Furnished option not found or failed: {e}")
+            # Try alternative selector
+            try:
+                await page.locator('label:has-text("Yes")').first.click(timeout=5000)
+                await asyncio.sleep(1)
+            except:
+                print("   ⚠️ Skipping furnished option - continuing with form")
         
-        # Set additional room option (from recording)
-        await page.locator("li:nth-child(6) > .radio-button-container > .form-section > label:nth-child(2) > .radio-button-rd").click()
-        await asyncio.sleep(1)
+        # Set additional room option (with error handling)
+        try:
+            await page.locator("li:nth-child(6) > .radio-button-container > .form-section > label:nth-child(2) > .radio-button-rd").click(timeout=10000)
+            await asyncio.sleep(1)
+        except Exception as e:
+            print(f"   ⚠️ Additional room option failed: {e}")
+            print("   ⚠️ Skipping additional room option - continuing with form")
         
         # Fill description
         await page.get_by_role("textbox", name="Description:").click()
