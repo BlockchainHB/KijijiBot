@@ -1,9 +1,9 @@
 {
-    "username": "your-email@domain.com",
-    "password": "your-password-here",
+    "username": "hasaamb@gmail.com",
+    "password": "BagChaser415!",
     "headless": false,
     "location": "138 Chillery Avenue, Scarborough",
-    "phone": "647-XXX-XXXX",
+    "phone": "647-607-4050",
     "notes": {
         "setup": "Copy this file to 'test_input.json' and add your real credentials",
         "security": "Never commit test_input.json to version control",

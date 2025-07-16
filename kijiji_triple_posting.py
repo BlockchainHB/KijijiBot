@@ -1,16 +1,17 @@
 """
-Kijiji Dual Room Rental Automation Script
-=========================================
+Kijiji Triple Room Rental Automation Script
+===========================================
 
 This script automates the process of posting room rental ads on Kijiji.ca
-It implements a dual-ad strategy, posting 2 unique ads targeting different audiences:
+It implements a triple-ad strategy, posting 3 unique ads targeting different audiences:
 - Ad 1: Targets working professionals ($500/month)
 - Ad 2: Targets students ($450/month)
+- Ad 3: [CUSTOM - TO BE CONFIGURED]
 
 Features:
 - Automatic login to Kijiji
 - Deletion of existing ads to avoid duplicates
-- Posting of 2 optimized ads with unique content
+- Posting of 3 optimized ads with unique content
 - Silent image upload (no visual file picker)
 - Screenshot logging for debugging
 - Ready for daily automation via cron/scheduler
@@ -26,9 +27,9 @@ import os              # For file system operations (creating directories)
 from datetime import datetime    # For timestamps in screenshots and logs
 from playwright.async_api import async_playwright  # Web automation library
 
-class KijijiDualPosting:
+class KijijiTriplePosting:
     """
-    Main automation class for Kijiji dual room rental posting.
+    Main automation class for Kijiji triple room rental posting.
     
     This class handles:
     1. Configuration loading from JSON file
@@ -51,21 +52,14 @@ class KijijiDualPosting:
         - password: Kijiji password  
         - headless: Boolean (True for background mode, False to see browser)
         """
-        # Load configuration from JSON file or environment variables
-        if os.path.exists(config_file):
-            with open(config_file, 'r') as f:
-                self.config = json.load(f)
-        else:
-            # Fallback to environment variables for GitHub Actions
-            self.config = {}
+        # Load configuration from JSON file
+        with open(config_file, 'r') as f:
+            self.config = json.load(f)
         
-        # Extract login credentials from config or environment
-        self.username = self.config.get('username') or os.getenv('KIJIJI_USERNAME')
-        self.password = self.config.get('password') or os.getenv('KIJIJI_PASSWORD')
-        self.headless = self.config.get('headless', True)  # Default to headless for cloud
-        
-        if not self.username or not self.password:
-            raise ValueError("Username and password must be provided via config file or environment variables")
+        # Extract login credentials from config
+        self.username = self.config.get('username')
+        self.password = self.config.get('password')
+        self.headless = self.config.get('headless', False)  # Default to visible browser
         
         # =================================================================
         # AD CONFIGURATION - CUSTOMIZE THESE FOR YOUR ROOM
@@ -140,7 +134,7 @@ WHAT'S INCLUDED:
 SPECIAL STUDENT RATE: $450/month
 All utilities included - no extra costs
 
-Available now for August 1st
+Available now for August
 Non-smoking environment
 
 Text/Call: 647-607-4050''',
@@ -148,6 +142,58 @@ Text/Call: 647-607-4050''',
             'tags': ['student', 'furnished', 'ttc', 'scarborough', 'college'],  # Student-focused keywords
             'location': '138 Chillery Avenue',
             'phone': '647-607-4050'
+        }
+        
+        # Ad 3: Female student housing - targeting female international students
+        # This ad uses lowest price point and female-only accommodation
+        self.ad3 = {
+            'title': 'Female Student Housing - Shared Furnished Room Available',  # 56 chars
+            'description': '''Available: 3 spot ASAP, 1 Spot available in August
+Rent: $400 per month (all-inclusive)
+Location: Scarborough - Close to malls and colleges
+
+What's Included:
+
+Fully furnished shared room with quality mattresses
+All utilities included (hydro, water, heat, internet)
+Laundry facilities (weekend access)
+Clean, quiet environment perfect for studying
+Safe residential neighborhood
+
+Room Details:
+
+Shared room with one other student
+2 spots currently available in one room and 1 in another
+Furnished with beds and basic furniture
+Basement level with proper lighting
+
+Location Benefits:
+
+Walking distance to local colleges
+Close to shopping mall and amenities
+Good public transit connections
+Quiet residential area
+Safe neighborhood for students
+
+Ideal For:
+
+South Asian Female international students
+Serious students looking for quiet study environment
+Students who prefer shared accommodation
+Those seeking all-inclusive rent with no surprise costs
+
+House Rules:
+
+Female tenants only
+No smoking, no parties
+Respectful, clean, and quiet lifestyle
+Shared common areas to be kept tidy
+
+Contact: Please text 647-740-5216''',
+            'price': '400',  # Lowest price for shared accommodation
+            'tags': ['student', 'furnished', 'ttc', 'scarborough', 'college'],  # Same tags as requested
+            'location': '38 Rochman Blvd',
+            'phone': '6477405216'
         }
         
         # =================================================================
@@ -177,6 +223,15 @@ Text/Call: 647-607-4050''',
             "images/ad2/building.png"        # Building exterior - angle 2
         ]
         
+        # Images for Ad 3 - stored in images/ad3/ folder
+        self.ad3_images = [
+            "images/ad3/image1.png",         # Main image for ad 3
+            "images/ad3/image2.png",         # Secondary image
+            "images/ad3/image3.png",         # Additional view
+            "images/ad3/image4.png",         # Feature highlight
+            "images/ad3/image5.png"          # Final image
+        ]
+        
         # =================================================================
         # DIRECTORY SETUP - CREATE REQUIRED FOLDERS
         # =================================================================
@@ -186,6 +241,7 @@ Text/Call: 647-607-4050''',
         os.makedirs('screenshots', exist_ok=True)    # For automation progress screenshots
         os.makedirs('images/ad1', exist_ok=True)     # For professional ad photos  
         os.makedirs('images/ad2', exist_ok=True)     # For student ad photos
+        os.makedirs('images/ad3', exist_ok=True)     # For third ad photos
         
     async def login(self, page):
         """
@@ -366,7 +422,13 @@ Text/Call: 647-607-4050''',
         await asyncio.sleep(2)
         
         # STEP 4: Fill form details (with correct images for this ad)
-        image_set = self.ad1_images if ad_number == 1 else self.ad2_images
+        if ad_number == 1:
+            image_set = self.ad1_images
+        elif ad_number == 2:
+            image_set = self.ad2_images
+        else:  # ad_number == 3
+            image_set = self.ad3_images
+            
         await self.fill_ad_form(page, ad_data, image_set)
         
         # STEP 5: Submit
@@ -382,26 +444,13 @@ Text/Call: 647-607-4050''',
         """Fill the ad form with details"""
         print("   📋 Filling form details...")
         
-        # Set furnished to Yes (with better error handling)
-        try:
-            await page.get_by_role("listitem").filter(has_text="Furnished: (optional) Yes No").locator("label").nth(2).click(timeout=10000)
-            await asyncio.sleep(1)
-        except Exception as e:
-            print(f"   ⚠️ Furnished option not found or failed: {e}")
-            # Try alternative selector
-            try:
-                await page.locator('label:has-text("Yes")').first.click(timeout=5000)
-                await asyncio.sleep(1)
-            except:
-                print("   ⚠️ Skipping furnished option - continuing with form")
+        # Set furnished to Yes (from recording)
+        await page.get_by_role("listitem").filter(has_text="Furnished: (optional) Yes No").locator("label").nth(2).click()
+        await asyncio.sleep(1)
         
-        # Set additional room option (with error handling)
-        try:
-            await page.locator("li:nth-child(6) > .radio-button-container > .form-section > label:nth-child(2) > .radio-button-rd").click(timeout=10000)
-            await asyncio.sleep(1)
-        except Exception as e:
-            print(f"   ⚠️ Additional room option failed: {e}")
-            print("   ⚠️ Skipping additional room option - continuing with form")
+        # Set additional room option (from recording)
+        await page.locator("li:nth-child(6) > .radio-button-container > .form-section > label:nth-child(2) > .radio-button-rd").click()
+        await asyncio.sleep(1)
         
         # Fill description
         await page.get_by_role("textbox", name="Description:").click()
@@ -457,32 +506,25 @@ Text/Call: 647-607-4050''',
         print("   ✅ Form completed")
         
     async def run_automation(self):
-        """Run the complete dual posting automation"""
-        print("🤖 Starting Kijiji Dual Room Posting Automation")
+        """Run the complete triple posting automation"""
+        print("🤖 Starting Kijiji Triple Room Posting Automation")
         print("=" * 55)
         print(f"Username: {self.username}")
         print(f"Ad 1: {self.ad1['title']} - ${self.ad1['price']}")
         print(f"Ad 2: {self.ad2['title']} - ${self.ad2['price']}")
+        print(f"Ad 3: {self.ad3['title']} - ${self.ad3['price']}")
         print(f"Headless: {self.headless}")
         print()
         
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=self.headless,
-                args=[
-                    '--disable-blink-features=AutomationControlled',
-                    '--no-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-web-security',
-                    '--disable-features=VizDisplayCompositor'
-                ]
+                args=['--disable-blink-features=AutomationControlled']
             )
             
             context = await browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                locale='en-CA',
-                timezone_id='America/Toronto'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             )
             
             page = await context.new_page()
@@ -500,10 +542,14 @@ Text/Call: 647-607-4050''',
                 # Step 4: Post second ad  
                 await self.post_ad(page, self.ad2, 2)
                 
-                print("\n🎉 Dual Posting Automation Completed Successfully!")
+                # Step 5: Post third ad
+                await self.post_ad(page, self.ad3, 3)
+                
+                print("\n🎉 Triple Posting Automation Completed Successfully!")
                 print("✅ All old ads deleted")
-                print("✅ Ad 1 posted: Shared Basement Room - $500")
-                print("✅ Ad 2 posted: Student Rental - $450")
+                print(f"✅ Ad 1 posted: {self.ad1['title']} - ${self.ad1['price']}")
+                print(f"✅ Ad 2 posted: {self.ad2['title']} - ${self.ad2['price']}")
+                print(f"✅ Ad 3 posted: {self.ad3['title']} - ${self.ad3['price']}")
                 
                 await page.screenshot(path=f'screenshots/04-final-success-{datetime.now().strftime("%H%M%S")}.png')
                 
@@ -521,8 +567,8 @@ Text/Call: 647-607-4050''',
                 await browser.close()
 
 async def main():
-    automation = KijijiDualPosting()
+    automation = KijijiTriplePosting()
     await automation.run_automation()
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

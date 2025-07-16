@@ -382,26 +382,13 @@ Text/Call: 647-607-4050''',
         """Fill the ad form with details"""
         print("   📋 Filling form details...")
         
-        # Set furnished to Yes (with better error handling)
-        try:
-            await page.get_by_role("listitem").filter(has_text="Furnished: (optional) Yes No").locator("label").nth(2).click(timeout=10000)
-            await asyncio.sleep(1)
-        except Exception as e:
-            print(f"   ⚠️ Furnished option not found or failed: {e}")
-            # Try alternative selector
-            try:
-                await page.locator('label:has-text("Yes")').first.click(timeout=5000)
-                await asyncio.sleep(1)
-            except:
-                print("   ⚠️ Skipping furnished option - continuing with form")
+        # Set furnished to Yes (from recording)
+        await page.get_by_role("listitem").filter(has_text="Furnished: (optional) Yes No").locator("label").nth(2).click()
+        await asyncio.sleep(1)
         
-        # Set additional room option (with error handling)
-        try:
-            await page.locator("li:nth-child(6) > .radio-button-container > .form-section > label:nth-child(2) > .radio-button-rd").click(timeout=10000)
-            await asyncio.sleep(1)
-        except Exception as e:
-            print(f"   ⚠️ Additional room option failed: {e}")
-            print("   ⚠️ Skipping additional room option - continuing with form")
+        # Set additional room option (from recording)
+        await page.locator("li:nth-child(6) > .radio-button-container > .form-section > label:nth-child(2) > .radio-button-rd").click()
+        await asyncio.sleep(1)
         
         # Fill description
         await page.get_by_role("textbox", name="Description:").click()
@@ -469,20 +456,12 @@ Text/Call: 647-607-4050''',
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=self.headless,
-                args=[
-                    '--disable-blink-features=AutomationControlled',
-                    '--no-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-web-security',
-                    '--disable-features=VizDisplayCompositor'
-                ]
+                args=['--disable-blink-features=AutomationControlled']
             )
             
             context = await browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                locale='en-CA',
-                timezone_id='America/Toronto'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             )
             
             page = await context.new_page()
